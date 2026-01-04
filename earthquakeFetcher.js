@@ -65,14 +65,17 @@ export async function fetchEarthquakes() {
             const lat = coordinates[1];
 
             // Filter Logic
-            const isGlobalMajor = mag > 5.0;
+            // Asia Bounding Box Approximation
+            const isAsia = (lat >= -11.0 && lat <= 82.0) && (lon >= 26.0 && lon <= 180.0);
 
             // Thailand Filter
             const isInsideThailandBox = (lat >= 5.6 && lat <= 20.5) && (lon >= 97.3 && lon <= 105.7);
             const isThailandByName = place.toLowerCase().includes("thailand");
             const isThailand = isInsideThailandBox || isThailandByName;
 
-            if (isGlobalMajor || isThailand) {
+            const shouldNotify = (isAsia && mag > 5.0) || isThailand;
+
+            if (shouldNotify) {
                 alerts.push({
                     id: id,
                     title: props.title,
