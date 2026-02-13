@@ -12,7 +12,7 @@ app.get('/', (req, res) => {
   res.send('Earthquake Bot is active!');
 });
 
-app.listen(port, () => {
+app.listen(port, '0.0.0.0', () => {
   console.log(`🌐 Dummy server is running on port ${port}`);
 });
 // ----------------------------------
