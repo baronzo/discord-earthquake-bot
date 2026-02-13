@@ -1,8 +1,12 @@
 import { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import cron from "node-cron";
+import express from "express";
+import dns from "node:dns";
+
+dns.setDefaultResultOrder('ipv4first');
+
 import { fetchEarthquakes } from "./earthquakeFetcher.js";
 import "dotenv/config";
-import express from "express";
 
 // --- ส่วน Keep-Alive Web Server ---
 const app = express();
@@ -19,6 +23,12 @@ app.listen(port, '0.0.0.0', () => {
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
+client.on("debug", (info) => {
+  if (!info.includes("Heartbeat") && !info.includes("Sending a heartbeat")) {
+    console.log(`[DISCORD DEBUG] ${info}`);
+  }
+});
+
 const commands = [
   new SlashCommandBuilder()
     .setName("earthquake")
@@ -27,18 +37,16 @@ const commands = [
 
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
 
-(async () => {
+client.once("ready", async () => {
+  console.log(`🤖 Logged in as ${client.user.tag}`);
+
   try {
     console.log("⏳ Registering commands...");
     await rest.put(Routes.applicationCommands(process.env.APPLICATION_ID), { body: commands });
-    console.log("✅ Commands registered.");
+    console.log("✅ Commands registered globally.");
   } catch (error) {
-    console.error("Error registering commands:", error);
+    console.error("❌ Error registering commands:", error);
   }
-})();
-
-client.once("ready", async () => {
-  console.log(`🤖 Logged in as ${client.user.tag}`);
 
   // Run every 1 minute
   cron.schedule("* * * * *", async () => {
@@ -77,7 +85,7 @@ async function checkAndSendEarthquakes(interaction = null) {
 }
 
 function createEarthquakeEmbed(alert) {
-  const color = alert.mag >= 5.0 ? 0xFF0000 : 0xFFA500; // Red for >5, Orange for others
+  const color = alert.mag >= 5.0 ? 0xFF0000 : 0xFFA500;
   const emoji = alert.mag >= 5.0 ? "🚨" : "⚠️";
 
   return new EmbedBuilder()
@@ -93,10 +101,6 @@ client.on("interactionCreate", async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
   if (interaction.commandName === "earthquake") {
     await interaction.deferReply();
-    // Re-checking manually might not show anything if they were already alerted (due to Set deduplication).
-    // But it triggers the fetch function which is useful.
-    // Note: Since 'sentAlerts' is in memory, if the user asks immediately after a cron run, it won't show duplicate alerts.
-    // This is generally desired behavior.
     await checkAndSendEarthquakes(interaction);
   }
 });
